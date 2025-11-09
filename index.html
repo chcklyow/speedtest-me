@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Speedtest Sederhana</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
+    button{padding:8px 12px;margin:6px}
+    pre{background:#f4f4f4;padding:10px;border-radius:6px;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+  <h1>Speedtest Sederhana 🚀</h1>
+  <p>Server base URL: <input id="base" value="" style="width:320px" placeholder="https://namaproject.vercel.app"/></p>
+  <div><button id="run">Jalankan test</button></div>
+  <pre id="out">Tekan "Jalankan test" untuk mulai...</pre>
+
+  <script>
+    const out = document.getElementById('out');
+    const baseInput = document.getElementById('base');
+
+    function log(...args){ out.textContent += '\\n' + args.join(' '); out.scrollTop = out.scrollHeight; }
+    function clearLog(){ out.textContent = ''; }
+
+    async function measureLatency(url, tries = 5){
+      const results = [];
+      for(let i=0;i<tries;i++){
+        const t0 = performance.now();
+        try{
+          await fetch(url + '?cache=' + Date.now(), {cache:'no-store'});
+          const t1 = performance.now();
+          results.push(t1 - t0);
+        }catch(e){results.push(null);}
+      }
+      const valid = results.filter(x=>x!=null);
+      const avg = valid.reduce((a,b)=>a+b,0)/valid.length;
+      return {rtts: results, avgMs: avg};
+    }
+
+    async function measureDownload(url){
+      const t0 = performance.now();
+      const res = await fetch(url + '?cache=' + Date.now(), {cache:'no-store'});
+      const buffer = await res.arrayBuffer();
+      const t1 = performance.now();
+      const bytes = buffer.byteLength;
+      const seconds = (t1 - t0)/1000;
+      const mbps = (bytes*8)/seconds/1e6;
+      return {bytes, seconds, mbps};
+    }
+
+    document.getElementById('run').addEventListener('click', async ()=>{
+      clearLog();
+      const base = baseInput.value.replace(/\\/$/, '');
+      log('Mulai test ke:', base);
+
+      try {
+        log('1) Latency test...');
+        const lat = await measureLatency(base + '/testfile.bin');
+        log('RTT (ms):', lat.rtts.map(x=>x?x.toFixed(1):'err').join(', '));
+        log('Rata-rata RTT:', lat.avgMs.toFixed(1), 'ms');
+
+        log('\\n2) Download test...');
+        const d = await measureDownload(base + '/testfile.bin');
+        log('Bytes:', d.bytes);
+        log('Waktu (s):', d.seconds.toFixed(2));
+        log('Download speed:', d.mbps.toFixed(2), 'Mbps');
+        log('\\nSelesai 🚀');
+      } catch (err) {
+        log('Error:', err.message);
+      }
+    });
+  </script>
+</body>
+</html>
